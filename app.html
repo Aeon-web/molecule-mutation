@@ -7,7 +7,7 @@
   <!-- this is app.html -->
   <meta
     name="description"
-    content="Describe a base molecule and a mutation. The AI explains how the change affects reactivity, mechanisms, acidity, and stability."
+    content="Describe a base molecule and a mutation. The AI explains how the change affects reactivity, mechanisms, IUPAC names, and predicts the mutated structure."
   />
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -33,7 +33,8 @@
         <h1>Molecule Mutation Tool</h1>
         <p class="section-subtitle">
           Describe a molecule and the change you want to make. The AI will show how that mutation affects
-          reactivity, acidity/basicity, sterics, electronics, and likely mechanisms.
+          reactivity, acidity/basicity, sterics, electronics, stability, IUPAC names,
+          and will attempt to predict the structure after the mutation.
         </p>
 
         <form
@@ -65,9 +66,9 @@
             required
           ></textarea>
 
-          <!-- 🧪 Optional SMILES input for structure rendering -->
+          <!-- 🧪 Optional SMILES input for base structure rendering -->
           <label class="example-label" style="margin-top: 0.8rem;">
-            Optional SMILES (for structure drawing)
+            Optional SMILES for base molecule (for drawing)
           </label>
           <input
             type="text"
@@ -97,30 +98,67 @@
           <div id="error" class="error" style="display: none; margin-top: 0.75rem;"></div>
         </form>
 
-        <!-- Results section always visible so canvas has real dimensions -->
+        <!-- Results section -->
         <section id="results" class="section" style="margin-top: 2rem;">
           <div class="section-inner">
             <h2>Analysis Result</h2>
             <p id="summary"></p>
 
-            <!-- 🧪 Structure rendering block (canvas) -->
-            <h3 style="margin-top: 1.3rem;">Structure (from SMILES)</h3>
-            <div class="example-block" style="display: inline-block;">
-              <canvas
-                id="smiles-canvas"
-                width="320"
-                height="320"
-                style="
-                  border: 1px solid #ddd;
-                  border-radius: 8px;
-                  background-color: #ffffff; /* white background */
-                "
-              ></canvas>
-              <p
-                id="smiles-error"
-                class="error"
-                style="display: none; margin-top: 0.5rem; font-size: 0.85rem;"
-              ></p>
+            <!-- 🧪 Structures -->
+            <h3 style="margin-top: 1.3rem;">Structures</h3>
+            <div style="display: flex; flex-wrap: wrap; gap: 1.5rem;">
+              <!-- Before -->
+              <div class="example-block" style="display: inline-block;">
+                <p class="example-label">Before mutation</p>
+                <canvas
+                  id="smiles-canvas-before"
+                  width="320"
+                  height="320"
+                  style="
+                    border: 1px solid #ddd;
+                    border-radius: 8px;
+                    background-color: #ffffff;
+                  "
+                ></canvas>
+                <p
+                  id="smiles-error-before"
+                  class="error"
+                  style="display: none; margin-top: 0.5rem; font-size: 0.85rem;"
+                ></p>
+              </div>
+
+              <!-- After -->
+              <div class="example-block" style="display: inline-block;">
+                <p class="example-label">After mutation (AI-predicted)</p>
+                <canvas
+                  id="smiles-canvas-after"
+                  width="320"
+                  height="320"
+                  style="
+                    border: 1px solid #ddd;
+                    border-radius: 8px;
+                    background-color: #ffffff;
+                  "
+                ></canvas>
+                <p
+                  id="smiles-error-after"
+                  class="error"
+                  style="display: none; margin-top: 0.5rem; font-size: 0.85rem;"
+                ></p>
+              </div>
+            </div>
+
+            <!-- IUPAC names -->
+            <h3 style="margin-top: 1.3rem;">IUPAC names</h3>
+            <div class="example-block">
+              <p class="example-label">Before mutation</p>
+              <p id="iupac-before"></p>
+
+              <p class="example-label" style="margin-top: 0.75rem;">After mutation</p>
+              <p id="iupac-after"></p>
+
+              <p class="example-label" style="margin-top: 0.75rem;">Notes</p>
+              <p id="iupac-notes"></p>
             </div>
 
             <h3 style="margin-top: 1.3rem;">Key changes</h3>
@@ -162,12 +200,12 @@
     <div class="footer-inner">
       <p>🧪 Molecule Mutation Generator</p>
       <p class="footer-small">
-        Experimental tool. Do not use as a substitute for real lab safety or professional chemical advice.
+        Educational tool. Do not use as a substitute for real lab safety or professional chemical advice.
       </p>
     </div>
   </footer>
 
-  <!-- SmilesDrawer library (version from official docs) -->
+  <!-- SmilesDrawer library -->
   <script src="https://unpkg.com/smiles-drawer@1.0.10/dist/smiles-drawer.min.js"></script>
 
   <!-- Initialize SmilesDrawer and expose a helper for app.js -->
@@ -204,12 +242,11 @@
     });
 
     // Global helper function that app.js can call
-    window.renderSmilesToCanvas = function (smiles) {
+    window.renderSmilesToCanvas = function (smiles, canvasId, errorId) {
       if (!smilesDrawer || !window.SmilesDrawer) return;
 
-      const canvasId = "smiles-canvas";
       const canvas = document.getElementById(canvasId);
-      const errEl = document.getElementById("smiles-error");
+      const errEl = errorId ? document.getElementById(errorId) : null;
 
       if (!canvas) return;
 
@@ -225,17 +262,15 @@
 
       const clean = (smiles || "").trim();
       if (!clean) {
-        // nothing to draw
         return;
       }
 
-      console.log("Trying to draw SMILES:", clean);
+      console.log("Trying to draw SMILES on", canvasId, ":", clean);
 
       SmilesDrawer.parse(
         clean,
         function (tree) {
           try {
-            // Use the custom high-contrast theme
             smilesDrawer.draw(tree, canvasId, "darkcanvas", false);
           } catch (drawErr) {
             console.error("SmilesDrawer draw error:", drawErr);
